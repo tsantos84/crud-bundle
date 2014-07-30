@@ -1,5 +1,5 @@
 {
-    "name":         "tsantos/datatable",
+    "name":         "tsantos/crud-bundle",
     "type":         "library",
     "description":  "Crud operations for Symfony2 projects",
     "keywords":     ["crud", "datatable"],
