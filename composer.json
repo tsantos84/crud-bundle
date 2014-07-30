@@ -1,0 +1,22 @@
+{
+    "name":         "tsantos/datatable",
+    "type":         "library",
+    "description":  "Crud operations for Symfony2 projects",
+    "keywords":     ["crud", "datatable"],
+    "license":      "MIT",
+    "authors":      [
+        {
+            "name":     "Tales Santos"
+        }
+    ],
+    "require":      {
+        "php":  ">=5.4.0",
+        "twig/twig": "~1.11",
+        "symfony/event-dispatcher" : "2.*",
+        "symfony/form" : "2.*"
+    },
+    "autoload":     {
+        "psr-0": { "Tavs\\Bundle\\CrudBundle": "" }
+    },
+    "minimum-stability": "dev"
+}
