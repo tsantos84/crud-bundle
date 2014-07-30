@@ -1,0 +1,26 @@
+{% extends "@DifeCommonCrud/base.html.twig" %}
+
+{% block content_title %}
+    <h3 class="page-title">Usuários <small>gestão dos usuários do sistema</small></h3>
+{% endblock %}
+
+{% block crud_portlet_title %}
+    <i class="fa fa-user"></i> Novo Usuário
+{% endblock %}
+
+{% block crud_portlet_body %}
+    <div class="form">
+        {{ form_start(form) }}
+            <div class="form-body">
+                {% block form_controls %}
+                {% endblock %}
+            </div>
+            {% block form_actions %}
+                <div class="form-actions right">
+                    <a href="{{ path(crud.route('index')) }}" class="btn default">Cancelar</a>
+                    <button class="btn blue" type="submit"><i class="fa fa-check"></i> Salvar</button>
+                </div>
+            {% endblock %}
+        {{ form_end(form) }}
+    </div>
+{% endblock %}

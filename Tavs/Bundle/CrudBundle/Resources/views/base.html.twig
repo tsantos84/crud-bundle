@@ -1,0 +1,25 @@
+{% extends "@DifeSaudeCore/Layout/layout.html.twig" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="portlet box grey-cascade">
+            <div class="portlet-title">
+                <div class="caption">
+                    {% block crud_portlet_title %}
+                        <i class="fa fa-cog"></i> CRUD Title
+                    {% endblock crud_portlet_title %}
+                </div>
+                <div class="actions">
+                    {% block crud_portlet_actions %}
+                    {% endblock %}
+                </div>
+            </div>
+            <div class="portlet-body no-space">
+                {% block crud_portlet_body %}
+                {% endblock %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

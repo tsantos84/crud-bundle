@@ -1,0 +1,61 @@
+{% extends "@DifeCommonCrud/base.html.twig" %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="{{ asset('bundles/difecommoncore/metronic/global/plugins/data-tables/DT_bootstrap.css') }}" rel="stylesheet" type="text/css" />
+    <link href="{{ asset('bundles/difecommoncrud/css/crud.css') }}" rel="stylesheet" type="text/css" />
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="{{ asset('bundles/difecommoncore/metronic/global/plugins/data-tables/js/jquery.dataTables.min.js') }}" type="text/javascript"></script>
+    <script src="{{ asset('bundles/difecommoncore/metronic/global/plugins/data-tables/DT_bootstrap.js') }}" type="text/javascript"></script>
+    <script src="{{ asset('bundles/difecommoncore/js/plugins/jquery.table.js') }}" type="text/javascript"></script>
+    <script>
+        $(function() {
+            $('#crud-datatable').table({{ datatable_options(datatable) }});
+        });
+    </script>
+{% endblock %}
+
+{% block content_title %}
+    <h3 class="page-title">Usuários <small>gestão dos usuários do sistema</small></h3>
+{% endblock %}
+
+{% block crud_portlet_actions %}
+    {# ACTIONS #}
+    <div class="btn-group">
+        <a data-toggle="dropdown" href="#" class="btn default">
+            <i class="fa fa-cog"></i> Opções <i class="fa fa-angle-down"></i>
+        </a>
+        <ul class="dropdown-menu pull-right">
+            <li>
+                <a href="#" class="actions-check-all" data-toggle="datatable-select-all" data-target="#crud-datatable"><i class="fa fa-check"></i> Selecionar tudo</a>
+            </li>
+            <li>
+                <a href="#" class="actions-search"><i class="fa fa-search"></i> Pesquisar</a>
+            </li>
+            <li>
+                <a href="javascript:;" data-toggle="datatable-reload" data-target="#crud-datatable"><i class="fa fa-refresh"></i> Recarregar</a>
+            </li>
+            <li class="divider"></li>
+            <li>
+                <a href="{{ path(crud.route('create')) }}"><i class="fa fa-plus"></i> Novo Registro</a>
+            </li>
+        </ul>
+    </div>
+{% endblock %}
+
+{% block crud_portlet_title %}
+    <i class="fa fa-list"></i> Listagem de usuários
+{% endblock %}
+
+{% block crud_portlet_body %}
+    <div id="listagem-container" class="row">
+        <div class="col-md-12 table-container">
+            <table id="crud-datatable" class="table table-advance table-striped table-bordered table-hover">
+                {{ datatable_head(datatable) }}
+            </table>
+        </div>
+    </div>
+{% endblock %}

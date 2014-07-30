@@ -1,0 +1,22 @@
+parameters:
+    tavs_crud.manager.class: Tavs\Bundle\CrudBundle\Manager\CrudManager
+    tavs_crud.configuration_factory.class: Tavs\Bundle\CrudBundle\Factory\ConfigurationFactory
+    tavs_crud.controller.class: Tavs\Bundle\CrudBundle\Controller\Controller
+    tavs_crud.controller_config.class: Tavs\Bundle\CrudBundle\Controller\Configuration
+
+services:
+
+    tavs_crud.configuration_factory:
+        class: %tavs_crud.configuration_factory.class%
+        calls:
+            - [setContainer, [@service_container]]
+
+    tavs_crud.manager:
+        class: %tavs_crud.manager.class%
+        arguments: [@tavs_crud.configuration_factory]
+
+    tavs_crud.controller:
+        class: %tavs_crud.controller.class%
+        arguments: [@event_dispatcher]
+        calls:
+            - [setContainer, [@service_container]]
