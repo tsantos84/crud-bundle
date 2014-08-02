@@ -13,7 +13,8 @@
         "php":  ">=5.4.0",
         "twig/twig": "~1.11",
         "symfony/event-dispatcher" : "2.*",
-        "symfony/form" : "2.*"
+        "symfony/form" : "2.*",
+        "tsantos/datatable-bundle" : "dev-master"
     },
     "autoload":     {
         "psr-0": { "Tavs\\Bundle\\CrudBundle": "" }
