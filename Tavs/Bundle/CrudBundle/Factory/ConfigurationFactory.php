@@ -78,8 +78,8 @@ class ConfigurationFactory extends ContainerAware
 
         $resolver->setAllowedTypes(array(
             'entity' => 'array',
-            'repository' => 'Doctrine\ORM\EntityRepository',
-            'form' => 'Symfony\Component\Form\FormTypeInterface'
+            'repository' => ['null', 'Doctrine\ORM\EntityRepository'],
+            'form' => ['string', 'Symfony\Component\Form\FormTypeInterface']
         ));
 
         return $resolver->resolve($options);
