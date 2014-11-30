@@ -40,6 +40,10 @@ class Controller extends ContainerAware
 
     /**
      * Shows the records of a given entity
+     *
+     * @param Request $request
+     *
+     * @return \Symfony\Component\HttpFoundation\Response
      */
     public function indexAction(Request $request)
     {
@@ -54,10 +58,10 @@ class Controller extends ContainerAware
             return $this->handleDataTableResponse($dataTable, $configuration);
         }
 
-        $view = new \ArrayObject(array(
+        $view = new \ArrayObject([
             'crud' => $configuration,
             'datatable' => $dataTable->createView()
-        ));
+        ]);
 
         $view = $this->trigger(CrudEvents::CRUD_BEFORE_RENDER_INDEX, new RenderEvent($configuration, $view))->getView();
 
@@ -73,11 +77,11 @@ class Controller extends ContainerAware
 
         // create the form and data
         $data = $this->createEntity();
-        $form = $this->createForm($configuration->getFormType(), $data, array(
-            'action' => $this->generateUrl($configuration->getRoute('save'), array(
+        $form = $this->createForm($configuration->getFormType(), $data, [
+            'action' => $this->generateUrl($configuration->getRoute('save'), [
                 'id' => 0
-            ))
-        ));
+            ])
+        ]);
 
         $event = new FormEvent($configuration, $form, $data);
         $this->trigger(CrudEvents::CRUD_AFTER_CREATE_FORM_CREATE, $event);
@@ -85,14 +89,14 @@ class Controller extends ContainerAware
         $data = $event->getData();
         $form->setData($data);
 
-        $view = new \ArrayObject(array(
+        $view = new \ArrayObject([
             'form' => $event->getForm()->createView(),
             'entity' => $data,
             'crud' => $configuration,
             'form_mode' => 'create',
             'edit_mode' => false,
             'create_mode' => true
-        ));
+        ]);
 
         $event = new RenderEvent($configuration, $view);
         $view = $this->trigger(CrudEvents::CRUD_BEFORE_RENDER_CREATE_FORM, $event)->getView();
@@ -102,6 +106,10 @@ class Controller extends ContainerAware
 
     /**
      * Display the edit form and save an existing record of a given entity
+     *
+     * @param Request $request
+     *
+     * @return \Symfony\Component\HttpFoundation\Response
      */
     public function editAction(Request $request)
     {
@@ -125,14 +133,14 @@ class Controller extends ContainerAware
         $data = $event->getData();
         $form->setData($data);
 
-        $view = new \ArrayObject(array(
+        $view = new \ArrayObject([
             'form' => $event->getForm()->createView(),
             'entity' => $data,
             'crud' => $configuration,
             'form_mode' => 'edit',
             'edit_mode' => true,
             'create_mode' => false
-        ));
+        ]);
 
         $event = new RenderEvent($configuration, $view);
         $view = $this->trigger(CrudEvents::CRUD_BEFORE_RENDER_EDIT_FORM, $event)->getView();
@@ -151,7 +159,8 @@ class Controller extends ContainerAware
 
         // retrieve the entity
         if ($id = $request->attributes->getInt('id')) {
-            if (null !== ($data = $this->getEntity($id))) {
+            $identifiers = $this->getIdentifiers($request);
+            if (null !== ($data = $this->getEntity($identifiers))) {
                 $isUpdate = true;
             } else {
                 throw new ResourceNotFoundException('Resource with id ('.$id.') not found');
@@ -163,7 +172,7 @@ class Controller extends ContainerAware
 
         // generate edit uri to redirect
         $editUri = $this->generateUrl(
-            $configuration->getRoute('edit'), array('id' => $id)
+            $configuration->getRoute('edit'), ['id' => $id]
         );
 
         // create the form and data
@@ -198,7 +207,6 @@ class Controller extends ContainerAware
                 // add the entity to the unit of work queue
                 $conn = $em->getConnection();
                 $conn->beginTransaction();
-                $em->persist($data);
 
                 try {
 
@@ -206,6 +214,7 @@ class Controller extends ContainerAware
                     $this->trigger($beforeEventName, new FormEvent($configuration, $form, $data));
 
                     // persist the data
+                    $em->persist($data);
                     $em->flush();
                     $conn->commit();
 
@@ -222,23 +231,28 @@ class Controller extends ContainerAware
                     // crud.after[insert|update]
                     $this->trigger(CrudEvents::CRUD_SAVE_ERROR, new FormEvent($configuration, $form, $data));
 
-                    $view = new \ArrayObject(array(
+                    // todo: esta ação deveria ser executada no listener, e não no controller
+                    $request->getSession()->getFlashBag()->add('danger', $e->getMessage());
+
+                    $view = new \ArrayObject([
                         'form' => $form->createView(),
                         'entity' => $data,
                         'form_mode' => $isUpdate ? 'edit' : 'create',
                         'edit_mode' => $isUpdate,
-                        'create_mode' => $isUpdate
-                    ));
+                        'create_mode' => $isUpdate,
+                        'crud' => $configuration,
+                    ]);
 
                     $response = $this->render($configuration->getTemplate('form'), $view->getArrayCopy());
                 }
 
             } else {
 
-                $view = new \ArrayObject(array(
+                $view = new \ArrayObject([
                     'form' => $form->createView(),
+                    'crud' => $configuration,
                     'entity' => $data
-                ));
+                ]);
 
                 $response = $this->render($configuration->getTemplate('form'), $view->getArrayCopy());
             }
@@ -264,7 +278,7 @@ class Controller extends ContainerAware
      * @param array $options
      * @return \Symfony\Component\Form\Form|\Symfony\Component\Form\FormInterface
      */
-    protected function createForm($type, $data = null, array $options = array())
+    protected function createForm($type, $data = null, array $options = [])
     {
         return $this->container->get('form.factory')->create($type, $data, $options);
     }
@@ -275,7 +289,7 @@ class Controller extends ContainerAware
      * @param bool $referenceType
      * @return string
      */
-    protected function generateUrl($name, array $params = array(), $referenceType = UrlGeneratorInterface::ABSOLUTE_PATH)
+    protected function generateUrl($name, array $params = [], $referenceType = UrlGeneratorInterface::ABSOLUTE_PATH)
     {
         return $this->container->get('router')->generate($name, $params, $referenceType);
     }
@@ -307,7 +321,7 @@ class Controller extends ContainerAware
     private function eventName($event)
     {
         $configuration = $this->getConfiguration();
-        return sprintf('%s.%s', $configuration->getName(), $event);
+        return sprintf('%s.%s', $event, $configuration->getName());
     }
 
     /**
