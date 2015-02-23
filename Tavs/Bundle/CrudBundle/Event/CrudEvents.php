@@ -4,28 +4,21 @@ namespace Tavs\Bundle\CrudBundle\Event;
 
 /**
  * Class CrudEvents
+ *
  * @package Tavs\Bundle\CrudBundle\Event
  */
 final class CrudEvents
 {
-    // events for index action
-    const CRUD_AFTER_CREATE_QUERY        = 'crud.after_create_query';
-    const CRUD_BEFORE_RENDER_INDEX       = 'crud.before_render_index';
-
-    // events for edit action
-    const CRUD_AFTER_CREATE_FORM_EDIT    = 'crud.after_create_form_edit';
-    const CRUD_BEFORE_RENDER_EDIT_FORM   = 'crud.before_render_edit_form';
-    const CRUD_BEFORE_HANDLER_EDIT_REQUEST = 'crud.before_handler_edit_request';
-
-    // events for create action
-    const CRUD_AFTER_CREATE_FORM_CREATE  = 'crud.after_create_form_create';
-    const CRUD_BEFORE_RENDER_CREATE_FORM = 'crud.before_render_create_form';
-    const CRUD_BEFORE_HANDLER_CREATE_REQUEST = 'crud.before_handler_create_request';
-
-    // events for saving action
-    const CRUD_BEFORE_INSERT             = 'crud.before_insert';
-    const CRUD_AFTER_INSERT              = 'crud.after_insert';
-    const CRUD_BEFORE_UPDATE             = 'crud.before_update';
-    const CRUD_AFTER_UPDATE              = 'crud.after_update';
-    const CRUD_SAVE_ERROR                = 'crud.save_error';
+    const ON_CREATE_QUERY = 'crud.on_create_query';
+    const ON_RENDER_INDEX = 'crud.on_render_index';
+    const ON_CREATE_FORM = 'crud.on_create_form';
+    const ON_RENDER_FORM = 'crud.on_render_form';
+    const PRE_HANDLER_FORM = 'crud.pre_handler_form';
+    const POST_HANDLER_FORM = 'crud.post_handler_form';
+    const ON_FORM_VALIDATION_FAILURE = 'crud.on_form_validation_failure';
+    const PRE_SAVE_DATA = 'crud.pre_save';
+    const POST_SAVE_DATA = 'crud.post_save';
+    const ON_SAVE_FAILURE = 'crud.save_failure';
+    const PRE_DELETE_DATA = 'crud.pre_delete_data';
+    const POST_DELETE_DATA = 'crud.post_delete_data';
 }

@@ -2,15 +2,19 @@
 
 namespace Tavs\Bundle\CrudBundle\Controller;
 
-use Symfony\Component\Routing\Exception\ResourceNotFoundException;
+use Doctrine\ORM\UnitOfWork;
 use Tavs\Bundle\CrudBundle\Event\CrudEvent;
 use Tavs\Bundle\CrudBundle\Event\CrudEvents;
+use Tavs\Bundle\CrudBundle\Event\EntityEvent;
+use Tavs\Bundle\CrudBundle\Event\FailureEntitySaveEvent;
 use Tavs\Bundle\CrudBundle\Event\FormEvent;
+use Tavs\Bundle\CrudBundle\Event\GetResponseEvent;
 use Tavs\Bundle\CrudBundle\Event\QueryEvent;
 use Tavs\Bundle\CrudBundle\Event\RenderEvent;
 use Tavs\DataTable\DataTableInterface;
 use Tavs\DataTable\Twig\Extension\DataTableExtension;
-
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\DependencyInjection\ContainerAware;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,6 +25,7 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 /**
  * Class Controller
+ *
  * @package Tavs\Bundle\CrudBundle\Controller
  */
 class Controller extends ContainerAware
@@ -30,7 +35,7 @@ class Controller extends ContainerAware
      */
     private $dispatcher;
 
-     /**
+    /**
      * @param EventDispatcherInterface $dispatcher
      */
     public function __construct(EventDispatcherInterface $dispatcher)
@@ -59,11 +64,18 @@ class Controller extends ContainerAware
         }
 
         $view = new \ArrayObject([
-            'crud' => $configuration,
+            'crud'      => $configuration,
             'datatable' => $dataTable->createView()
         ]);
 
-        $view = $this->trigger(CrudEvents::CRUD_BEFORE_RENDER_INDEX, new RenderEvent($configuration, $view))->getView();
+        $event = $this->trigger(CrudEvents::ON_RENDER_INDEX, ['viewBag' => $view]);
+
+        // in case of the listener builds the response
+        if ($response = $event->getResponse()) {
+            return $response;
+        }
+
+        $view = $event->getViewBag();
 
         return $this->render($configuration->getTemplate('index'), $view->getArrayCopy());
     }
@@ -75,33 +87,14 @@ class Controller extends ContainerAware
     {
         $configuration = $this->getConfiguration();
 
-        // create the form and data
+        // create a fresh entity
         $data = $this->createEntity();
-        $form = $this->createForm($configuration->getFormType(), $data, [
-            'action' => $this->generateUrl($configuration->getRoute('save'), [
-                'id' => 0
-            ])
-        ]);
 
-        $event = new FormEvent($configuration, $form, $data);
-        $this->trigger(CrudEvents::CRUD_AFTER_CREATE_FORM_CREATE, $event);
+        // create the form
+        $form = $this->createCrudForm($data, ['id' => 0]);
 
-        $data = $event->getData();
-        $form->setData($data);
-
-        $view = new \ArrayObject([
-            'form' => $event->getForm()->createView(),
-            'entity' => $data,
-            'crud' => $configuration,
-            'form_mode' => 'create',
-            'edit_mode' => false,
-            'create_mode' => true
-        ]);
-
-        $event = new RenderEvent($configuration, $view);
-        $view = $this->trigger(CrudEvents::CRUD_BEFORE_RENDER_CREATE_FORM, $event)->getView();
-
-        return $this->render($configuration->getTemplate('form'), $view->getArrayCopy());
+        // return the response
+        return $this->renderForm($form, $data);
     }
 
     /**
@@ -113,6 +106,132 @@ class Controller extends ContainerAware
      */
     public function editAction(Request $request)
     {
+        $identifiers = $this->getIdentifiers($request);
+        $configuration = $this->getConfiguration();
+
+        // retrieve the entity
+        if (null === ($data = $this->getEntity($identifiers))) {
+            throw new NotFoundHttpException('No entity was found');
+        }
+
+        // create the form
+        $form = $this->createCrudForm($data, $identifiers);
+
+        // return the response
+        return $this->renderForm($form, $data);
+    }
+
+    /**
+     * @param Request $request
+     *
+     * @throws \Symfony\Component\Routing\Exception\ResourceNotFoundException
+     * @return RedirectResponse|\Symfony\Component\HttpFoundation\Response
+     */
+    public function saveAction(Request $request)
+    {
+        if (!$request->isMethod('post')) {
+            throw new \BadRequestHttpException('This request accepts only POST request method');
+        }
+
+        $configuration = $this->getConfiguration();
+        $identifiers = $this->getIdentifiers($request);
+
+        // retrieve the entity
+        if ($id = $request->attributes->getInt('id')) {
+            if (null !== ($data = $this->getEntity($identifiers))) {
+                $isUpdate = true;
+            } else {
+                throw new ResourceNotFoundException('Resource with id (' . $id . ') not found');
+            }
+        } else {
+            $data = $this->createEntity();
+            $isUpdate = false;
+        }
+
+        // generate edit uri to redirect
+        $editUri = $this->generateUrl(
+            $configuration->getRoute('edit'), $identifiers
+        );
+
+        // create the form
+        $form = $this->createCrudForm($data, $identifiers);
+
+        // crud.pre_handler_form
+        $this->trigger(CrudEvents::PRE_HANDLER_FORM, ['form' => $form, 'data' => $data]);
+
+        // process the form
+        $form->handleRequest($request);
+
+        // crud.post_handler_form
+        $this->trigger(CrudEvents::POST_HANDLER_FORM, ['form' => $form, 'data' => $data]);
+
+        // valida o formulário
+        if ($form->isValid()) {
+
+            $data = $form->getData();
+
+            // begin transaction
+            $em = $this->getEntityManager();
+
+            // add the entity to the unit of work queue
+            $conn = $em->getConnection();
+            $conn->beginTransaction();
+
+            try {
+
+                // crud.pre_save_data
+                $this->trigger(CrudEvents::PRE_SAVE_DATA, ['data' => $data, 'form' => $form]);
+
+                // persist the data
+                $em->persist($data);
+                $em->flush();
+                $conn->commit();
+
+                // crud.post_save_data
+                $event = $this->trigger(CrudEvents::POST_SAVE_DATA, ['data' => $data, 'form' => $form]);
+
+                // redirect to index
+                if (null === ($response = $event->getResponse())) {
+                    $response = new RedirectResponse($this->generateUrl($configuration->getRoute('index')));
+                }
+
+            } catch (\Exception $e) {
+
+                if ($conn->isTransactionActive()) {
+                    $conn->rollBack();
+                }
+
+                // crud.on_save_failure
+                $event = $this->trigger(CrudEvents::ON_SAVE_FAILURE, ['data' => $data, 'exception' => $e, 'form' => $form]);
+
+                // redirect to index
+                if (null === ($response = $event->getResponse())) {
+                    $response = $this->renderForm($form, $data);
+                }
+
+            }
+
+        } else {
+
+            // crud.on_form_validation_failure
+            $event = $this->trigger(CrudEvents::ON_FORM_VALIDATION_FAILURE, ['form' => $form, 'data' => $data]);
+
+            // render the form with the failures
+            if (null === ($response = $event->getResponse())) {
+                $response = $this->renderForm($form, $data);
+            }
+        }
+
+        return $response;
+    }
+
+    /**
+     * Delete an existing row of a given entity
+     *
+     * @param Request $request
+     */
+    public function deleteAction(Request $request)
+    {
         $configuration = $this->getConfiguration();
 
         $identifiers = $this->getIdentifiers($request);
@@ -122,160 +241,34 @@ class Controller extends ContainerAware
             throw new NotFoundHttpException('No entity was found');
         }
 
-        // create the form and data
-        $form = $this->createForm($configuration->getFormType(), $data, [
-            'action' => $this->generateUrl($configuration->getRoute('save'), $identifiers)
-        ]);
+        // crud.before_delete
+        $ev = $this->trigger(CrudEvents::PRE_DELETE_DATA, new CrudEvent($configuration, $data));
 
-        $event = new FormEvent($configuration, $form, $data);
-        $this->trigger(CrudEvents::CRUD_AFTER_CREATE_FORM_EDIT, $event);
-
-        $data = $event->getData();
-        $form->setData($data);
-
-        $view = new \ArrayObject([
-            'form' => $event->getForm()->createView(),
-            'entity' => $data,
-            'crud' => $configuration,
-            'form_mode' => 'edit',
-            'edit_mode' => true,
-            'create_mode' => false
-        ]);
-
-        $event = new RenderEvent($configuration, $view);
-        $view = $this->trigger(CrudEvents::CRUD_BEFORE_RENDER_EDIT_FORM, $event)->getView();
-
-        return $this->render($configuration->getTemplate('form'), $view->getArrayCopy());
-    }
-
-    /**
-     * @param Request $request
-     * @throws \Symfony\Component\Routing\Exception\ResourceNotFoundException
-     * @return RedirectResponse|\Symfony\Component\HttpFoundation\Response
-     */
-    public function saveAction(Request $request)
-    {
-        $configuration = $this->getConfiguration();
-
-        // retrieve the entity
-        if ($id = $request->attributes->getInt('id')) {
-            $identifiers = $this->getIdentifiers($request);
-            if (null !== ($data = $this->getEntity($identifiers))) {
-                $isUpdate = true;
-            } else {
-                throw new ResourceNotFoundException('Resource with id ('.$id.') not found');
-            }
-        } else {
-            $data = $this->createEntity();
-            $isUpdate = false;
+        if ($ev->isDefaultPrevented()) {
+            return;
         }
 
-        // generate edit uri to redirect
-        $editUri = $this->generateUrl(
-            $configuration->getRoute('edit'), ['id' => $id]
-        );
+        // begin transaction
+        $em = $this->getEntityManager();
 
-        // create the form and data
-        $form = $this->createForm($configuration->getFormType(), $data);
+        $em->getConnection()->beginTransaction();
 
-        // accepts only POST request
-        if ($request->isMethod('post')) {
-
-            // detect the event names [INSER/UPDATE]
-            if ($isUpdate) {
-                $handlerEventName = CrudEvents::CRUD_BEFORE_HANDLER_EDIT_REQUEST;
-                $beforeEventName = CrudEvents::CRUD_BEFORE_UPDATE;
-                $afterEventName = CrudEvents::CRUD_AFTER_UPDATE;
-            } else {
-                $handlerEventName = CrudEvents::CRUD_BEFORE_HANDLER_CREATE_REQUEST;
-                $beforeEventName = CrudEvents::CRUD_BEFORE_INSERT;
-                $afterEventName = CrudEvents::CRUD_AFTER_INSERT;
-            }
-
-            // crud.before_handler_[edit|create]_request
-            $this->trigger($handlerEventName, new FormEvent($configuration, $form, $data));
-
-            // process the form
-            $form->handleRequest($request);
-
-            // valida o formulário
-            if ($form->isValid()) {
-
-                // begin transaction
-                $em = $this->getEntityManager();
-
-                // add the entity to the unit of work queue
-                $conn = $em->getConnection();
-                $conn->beginTransaction();
-
-                try {
-
-                    // crud.before[insert|update]
-                    $this->trigger($beforeEventName, new FormEvent($configuration, $form, $data));
-
-                    // persist the data
-                    $em->persist($data);
-                    $em->flush();
-                    $conn->commit();
-
-                    // crud.after[insert|update]
-                    $this->trigger($afterEventName, new FormEvent($configuration, $form, $data));
-
-                    // redirect to index
-                    $response = new RedirectResponse($this->generateUrl($configuration->getRoute('index')));
-
-                } catch (\Exception $e) {
-
-                    $conn->rollBack();
-
-                    // crud.after[insert|update]
-                    $this->trigger(CrudEvents::CRUD_SAVE_ERROR, new FormEvent($configuration, $form, $data));
-
-                    // todo: esta ação deveria ser executada no listener, e não no controller
-                    $request->getSession()->getFlashBag()->add('danger', $e->getMessage());
-
-                    $view = new \ArrayObject([
-                        'form' => $form->createView(),
-                        'entity' => $data,
-                        'form_mode' => $isUpdate ? 'edit' : 'create',
-                        'edit_mode' => $isUpdate,
-                        'create_mode' => $isUpdate,
-                        'crud' => $configuration,
-                    ]);
-
-                    $response = $this->render($configuration->getTemplate('form'), $view->getArrayCopy());
-                }
-
-            } else {
-
-                $view = new \ArrayObject([
-                    'form' => $form->createView(),
-                    'crud' => $configuration,
-                    'entity' => $data
-                ]);
-
-                $response = $this->render($configuration->getTemplate('form'), $view->getArrayCopy());
-            }
-
-        } else {
-            $response = new RedirectResponse($editUri);
+        try {
+            $em->remove($data);
+            $em->getConnection()->commit();
+        } catch (\Exception $e) {
+            $em->getConnection()->rollBack();
         }
 
-        return $response;
+        // crud.after_delete
+        $this->trigger(CrudEvents::POST_DELETE_DATA, new CrudEvent($configuration, $data));
     }
 
     /**
-     * Delete an existing row of a given entity
-     */
-    public function deleteAction()
-    {
-
-    }
-
-    /**
-     * @param $type
-     * @param null $data
+     * @param       $type
+     * @param null  $data
      * @param array $options
+     *
      * @return \Symfony\Component\Form\Form|\Symfony\Component\Form\FormInterface
      */
     protected function createForm($type, $data = null, array $options = [])
@@ -284,9 +277,10 @@ class Controller extends ContainerAware
     }
 
     /**
-     * @param $name
+     * @param       $name
      * @param array $params
-     * @param bool $referenceType
+     * @param bool  $referenceType
+     *
      * @return string
      */
     protected function generateUrl($name, array $params = [], $referenceType = UrlGeneratorInterface::ABSOLUTE_PATH)
@@ -303,30 +297,56 @@ class Controller extends ContainerAware
     }
 
     /**
+     * @return \Symfony\Component\Form\FormInterface
+     */
+    private function createCrudForm($data, array $identifiers)
+    {
+        $configuration = $this->getConfiguration();
+
+        $form = $this->createForm($configuration->getFormType(), $data, [
+            'action' => $this->generateUrl($configuration->getRoute('save'), $identifiers)
+        ]);
+
+        return $form;
+    }
+
+    /**
      * Dispara um evento do crud
      *
      * @param $name
      * @param $ev
+     *
      * @return CrudEvent
      */
-    private function trigger($name, $ev)
+    private function trigger($name, array $options)
     {
-        return $this->dispatcher->dispatch($this->eventName($name), $ev);
+        $ev = $this->createCrudEvent($options);
+
+        // dispatch "specific" crud event
+        $ev = $this->dispatcher->dispatch($this->eventName($name), $ev);
+
+        // dispatch "global" crud event
+        $ev = $this->dispatcher->dispatch($name, $ev);
+
+        return $ev;
     }
 
     /**
      * @param $event
+     *
      * @return string
      */
     private function eventName($event)
     {
         $configuration = $this->getConfiguration();
+
         return sprintf('%s.%s', $event, $configuration->getName());
     }
 
     /**
-     * @param $template
+     * @param       $template
      * @param array $view
+     *
      * @return \Symfony\Component\HttpFoundation\Response
      */
     private function render($template, array $view = [])
@@ -335,14 +355,56 @@ class Controller extends ContainerAware
     }
 
     /**
-     * @param DataTableInterface $dataTable
+     * @param FormInterface $form
+     * @param               $data
+     * @param               $toEdit
+     *
+     * @return \Symfony\Component\HttpFoundation\Response
+     */
+    private function renderForm(FormInterface $form, $data)
+    {
+        $isUpdate = $this->getEntityManager()->getUnitOfWork()->getEntityState($data, UnitOfWork::STATE_NEW) == UnitOfWork::STATE_MANAGED;
+
+        $configuration = $this->getConfiguration();
+
+        $event = $this->trigger(CrudEvents::ON_CREATE_FORM, ['form' => $form, 'data' => $data]);
+
+        $data = $event->getData();
+
+        if (!$form->isSubmitted()) {
+            $form->setData($data);
+        }
+
+        $view = new \ArrayObject([
+            'form'        => $event->getForm()->createView(),
+            'entity'      => $data,
+            'crud'        => $configuration,
+            'form_mode'   => $isUpdate ? 'edit' : 'create',
+            'edit_mode'   => $isUpdate,
+            'create_mode' => !$isUpdate
+        ]);
+
+        $event = $this->trigger(CrudEvents::ON_RENDER_FORM, ['viewBag' => $view]);
+
+        if ($response = $event->getResponse()) {
+            return $response;
+        }
+
+        $view = $event->getViewBag();
+
+        return $this->render($configuration->getTemplate('form'), $view->getArrayCopy());
+    }
+
+    /**
+     * @param DataTableInterface     $dataTable
      * @param ConfigurationInterface $configuration
+     *
      * @return JsonResponse
      */
     private function handleDataTableResponse(DataTableInterface $dataTable, ConfigurationInterface $configuration)
     {
         $query = $configuration->getRepository()->createQueryBuilder($configuration->getEntityAlias());
-        $query = $this->trigger(CrudEvents::CRUD_AFTER_CREATE_QUERY, new QueryEvent($configuration, $query))->getQuery();
+        $query = $this->trigger(CrudEvents::ON_CREATE_QUERY, ['query' => $query])->getQuery();
 
         $request = $this->container->get('request');
 
@@ -359,11 +421,11 @@ class Controller extends ContainerAware
         /** @var DataTableExtension $extension */
         $extension = $twig->getExtension('datatable');
 
-        try {
-            // has the resource some theme?
-//            $extension->setTheme($view, array($configuration->getTemplate('datatable_theme')));
-        } catch (\InvalidArgumentException $e) {
-        }
+//        try {
+//            // has the resource some theme?
+////            $extension->setTheme($view, array($configuration->getTemplate('datatable_theme')));
+//        } catch (\InvalidArgumentException $e) {
+//        }
 
         $response = new JsonResponse($extension->getDataTableResponse($view, $request));
         $response->headers->set('content-length', strlen($response->getContent()));
@@ -397,9 +459,15 @@ class Controller extends ContainerAware
     private function createEntity()
     {
         $class = $this->getConfiguration()->getRepository()->getClassName();
+
         return new $class();
     }
 
+    /**
+     * @param Request $request
+     *
+     * @return array
+     */
     private function getIdentifiers(Request $request)
     {
         $em = $this->getEntityManager();
@@ -411,17 +479,57 @@ class Controller extends ContainerAware
 
         foreach ($fieldNames as $field) {
             if ($value = $request->get($field)) {
-                $identifiers[$field] = $value;
+                $identifiers[ $field ] = $value;
             }
         }
 
         return $identifiers;
     }
 
+    /**
+     * @param array $identifiers
+     *
+     * @return mixed
+     */
     private function getEntity(array $identifiers)
     {
         $repository = $this->getConfiguration()->getRepository();
         $entity = call_user_func_array([$repository, 'find'], $identifiers);
+
         return $entity;
+    }
+
+    /**
+     * @param $data
+     *
+     * @return string
+     */
+    private function getEntityState($data)
+    {
+        return $data->getId() ? EntityEvent::STATE_PERSISTED : EntityEvent::STATE_NEW;
+    }
+
+    /**
+     * @param array $options
+     *
+     * @return CrudEvent
+     */
+    private function createCrudEvent(array $options)
+    {
+        $options['form'] = isset($options['form']) ? $options['form'] : null;
+        $options['data'] = isset($options['data']) ? $options['data'] : null;
+        $options['response'] = isset($options['response']) ? $options['response'] : null;
+        $options['viewBag'] = isset($options['viewBag']) ? $options['viewBag'] : null;
+        $options['query'] = isset($options['query']) ? $options['query'] : null;
+        $options['exception'] = isset($options['exception']) ? $options['exception'] : null;
+
+        return new CrudEvent(
+            $options['form'],
+            $options['data'],
+            $options['response'],
+            $options['viewBag'],
+            $options['query'],
+            $options['exception']
+        );
     }
 }
