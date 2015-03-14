@@ -478,7 +478,7 @@ class Controller extends ContainerAware
         $identifiers = [];
 
         foreach ($fieldNames as $field) {
-            if ($value = $request->get($field)) {
+            if (null !== ($value = $request->get($field))) {
                 $identifiers[ $field ] = $value;
             }
         }
