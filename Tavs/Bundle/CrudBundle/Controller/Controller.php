@@ -384,7 +384,7 @@ class Controller extends ContainerAware
             'create_mode' => !$isUpdate
         ]);
 
-        $event = $this->trigger(CrudEvents::ON_RENDER_FORM, ['viewBag' => $view, ‘data’ => $data, ‘form’=>$form]);
+        $event = $this->trigger(CrudEvents::ON_RENDER_FORM, ['viewBag' => $view, 'data' => $data, 'form'=>$form]);
 
         if ($response = $event->getResponse()) {
             return $response;
