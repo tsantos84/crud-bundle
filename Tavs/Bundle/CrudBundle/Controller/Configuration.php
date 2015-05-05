@@ -17,7 +17,7 @@ class Configuration implements ConfigurationInterface
     /**
      * @param array $options
      */
-    public function __construct(array $options = array())
+    public function __construct(array $options = [])
     {
         $this->options = $options;
     }
@@ -83,11 +83,19 @@ class Configuration implements ConfigurationInterface
     }
 
     /**
-     * @return FormTypeInterface
+     * @inheritdoc
      */
     public function getFormType()
     {
-        return $this->options['form'];
+        return $this->options['form']['type'];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function getFormTypeOptions()
+    {
+        return $this->options['form']['options'];
     }
 
 }

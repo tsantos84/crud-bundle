@@ -303,9 +303,9 @@ class Controller extends ContainerAware
     {
         $configuration = $this->getConfiguration();
 
-        $form = $this->createForm($configuration->getFormType(), $data, [
+        $form = $this->createForm($configuration->getFormType(), $data, array_merge($configuration->getFormTypeOptions(), [
             'action' => $this->generateUrl($configuration->getRoute('save'), $identifiers)
-        ]);
+        ]));
 
         return $form;
     }

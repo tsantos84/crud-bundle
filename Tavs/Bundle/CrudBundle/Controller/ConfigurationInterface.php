@@ -52,4 +52,9 @@ interface ConfigurationInterface
      * @return FormTypeInterface
      */
     public function getFormType();
+
+    /**
+     * @return array
+     */
+    public function getFormTypeOptions();
 }

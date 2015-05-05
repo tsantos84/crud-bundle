@@ -11,22 +11,26 @@ use Symfony\Component\OptionsResolver\OptionsResolverInterface;
 
 /**
  * Class Factory
+ *
  * @package Dife\Component\Crud
  */
 class ConfigurationFactory extends ContainerAware
 {
     /**
      * @param array $options
+     *
      * @return Configuration
      */
-    public function createConfiguration(array $options = array())
+    public function createConfiguration(array $options = [])
     {
         $configuration = new Configuration($this->resolveOptions($options));
+
         return $configuration;
     }
 
     /**
      * @param array $options
+     *
      * @return array
      */
     public function resolveOptions(array $options)
@@ -34,53 +38,60 @@ class ConfigurationFactory extends ContainerAware
         $resolver = new OptionsResolver();
         $container = $this->container;
 
-        $serviceResolver = function(Options $options, $value) use ($container) {
+        $serviceResolver = function (Options $options, $value) use ($container) {
             if (is_string($value) && 0 === strpos($value, '@')) {
                 $value = $container->get(substr($value, 1));
             }
+
             return $value;
         };
 
-        $resolver->setDefaults(array(
+        $resolver->setDefaults([
             'repository' => null,
-            'routes' => array()
-        ));
+            'routes'     => []
+        ]);
 
-        $resolver->setRequired(array(
+        $resolver->setRequired([
             'name',
             'datatable',
             'entity',
             'form',
             'templates'
-        ));
+        ]);
 
-        $resolver->setNormalizers(array(
-            'entity' => function(Options $options, $value) {
+        $resolver->setNormalizers([
+            'entity'     => function (Options $options, $value) {
                 if (is_string($value)) {
-                    $value = array(
-                        'name' => $value,
+                    $value = [
+                        'name'  => $value,
                         'alias' => '_main_'
-                    );
+                    ];
                 }
+
                 return $value;
             },
-            'datatable' => $serviceResolver,
-            'form' => $serviceResolver,
-            'repository' => function(Options $options, $value) use ($container) {
+            'datatable'  => $serviceResolver,
+            'form'       => function (Options $options, $value) use ($serviceResolver) {
+                $value['type'] = $serviceResolver($options, $value['type']);
+
+                return $value;
+            },
+            'repository' => function (Options $options, $value) use ($container) {
                 if (is_string($value) && 0 === strpos($value, '@')) {
                     $value = $container->get(substr($value, 1));
                 } elseif (null === $value) {
                     $value = $container->get('doctrine.orm.entity_manager')->getRepository($options['entity']['name']);
                 }
+
                 return $value;
             }
-        ));
+        ]);
 
-        $resolver->setAllowedTypes(array(
-            'entity' => 'array',
+        $resolver->setAllowedTypes([
+            'entity'     => 'array',
             'repository' => ['null', 'Doctrine\ORM\EntityRepository'],
-            'form' => ['string', 'Symfony\Component\Form\FormTypeInterface']
-        ));
+            'form'       => 'array'
+        ]);
 
         return $resolver->resolve($options);
     }
