@@ -14,7 +14,7 @@ class CrudEventTest extends \PHPUnit_Framework_TestCase
         $viewBag = $this->getViewBag();
         $query = $this->getQueryBuilderMock();
         $exception = $this->getException();
-        $event = new CrudEvent($form, $data, $viewBag, $query, $exception);
+        $event = new CrudEvent($form, $data, $response, $viewBag, $query, $exception);
         
         $this->assertInstanceOf('Symfony\Component\Form\FormInterface', $event->getForm());
         $this->assertInstanceOf('stdClass', $event->getData());
