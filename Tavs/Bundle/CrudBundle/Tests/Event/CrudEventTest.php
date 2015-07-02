@@ -8,12 +8,12 @@ class CrudEventTest extends \PHPUnit_Framework_TestCase
 {
     public function testConstructor()
     {
-        $form = $this->getMock('Symfony\Component\Form\FormInterface');
-        $data = new \stdClass();
-        $response = $this->getMock('Symfony\Component\HttpFoundation\Response');
-        $viewBag = new \ArrayObject();
-        $query = $this->getMock('Doctrine\ORM\QueryBuilder');
-        $exception = new \Exception();
+        $form = $this->getFormMock();
+        $data = $this->getData();
+        $response = $this->getResponseMock();
+        $viewBag = $this->getViewBag();
+        $query = $this->getQueryBuilderMock();
+        $exception = $this->getException();
         $event = new CrudEvent($form, $data, $viewBag, $query, $exception);
         
         $this->assertInstanceOf('Symfony\Component\Form\FormInterface', $event->getForm());
@@ -22,5 +22,41 @@ class CrudEventTest extends \PHPUnit_Framework_TestCase
         $this->assertInstanceOf('\ArrayObject', $event->getViewBag());
         $this->assertInstanceOf('Doctrine\ORM\QueryBuilder', $event->getQuery());
         $this->assertInstanceOf('\Exception', $event->getException());
+    }
+    
+    private function getFormMock()
+    {
+        return $this->getMock('Symfony\Component\Form\FormInterface');
+    }
+    
+    private function getData()
+    {
+        return new \stdClass();
+    }
+    
+    private function getResponseMock()
+    {
+        return $this->getMock('Symfony\Component\HttpFoundation\Response');
+    }
+    
+    private function getQueryBuilderMock()
+    {
+        $em = $this->getMock('Doctrine\ORM\EntityManager');
+        $qb = $this
+            ->getMockBuilder('Doctrine\ORM\QueryBuilder')
+            ->setConstructorArgs([$em])
+            ->getMock();
+            
+        return $qb;
+    }
+    
+    private function getViewBag()
+    {
+        return new \ArrayObject();
+    }
+    
+    private function getException()
+    {
+        return new \Exception();
     }
 }
