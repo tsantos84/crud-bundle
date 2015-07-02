@@ -16,11 +16,11 @@ class CrudEventTest extend \PHPUnit_Framework_TestCase
         $exception = new \Exception();
         $event = new CrudEvent($form, $data, $viewBag, $query, $exception);
         
-        $this->assertInstance('Symfony\Component\Form\FormInterface', $event->getForm());
-        $this->assertInstance('stdClass', $event->getData());
-        $this->assertInstance('Symfony\Component\HttpFoundation\Response', $event->getResponse());
-        $this->assertInstance('\ArrayObject', $event->getViewBag());
-        $this->assertInstance('Doctrine\ORM\QueryBuilder', $event->getQuery());
-        $this->assertInstance('\Exception', $event->getException());
+        $this->assertInstanceOf('Symfony\Component\Form\FormInterface', $event->getForm());
+        $this->assertInstanceOf('stdClass', $event->getData());
+        $this->assertInstanceOf('Symfony\Component\HttpFoundation\Response', $event->getResponse());
+        $this->assertInstanceOf('\ArrayObject', $event->getViewBag());
+        $this->assertInstanceOf('Doctrine\ORM\QueryBuilder', $event->getQuery());
+        $this->assertInstanceOf('\Exception', $event->getException());
     }
 }
