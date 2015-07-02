@@ -1,5 +1,5 @@
-# TavsCrudBundle 
-================
+TavsCrudBundle
+==============
 
 The TavsCrudBundle adds the support to CRUD operations in your Symfony2 application.
 
