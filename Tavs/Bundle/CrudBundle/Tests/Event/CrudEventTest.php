@@ -8,11 +8,11 @@ class CrudEventTest extends \PHPUnit_Framework_TestCase
 {
     public function testConstructor()
     {
-        $form = $this->mock('Symfony\Component\Form\FormInterface');
+        $form = $this->getMock('Symfony\Component\Form\FormInterface');
         $data = new \stdClass();
-        $response = $this->mock('Symfony\Component\HttpFoundation\Response');
+        $response = $this->getMock('Symfony\Component\HttpFoundation\Response');
         $viewBag = new \ArrayObject();
-        $query = $this->mock('Doctrine\ORM\QueryBuilder');
+        $query = $this->getMock('Doctrine\ORM\QueryBuilder');
         $exception = new \Exception();
         $event = new CrudEvent($form, $data, $viewBag, $query, $exception);
         
