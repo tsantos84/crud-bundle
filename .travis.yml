@@ -1,6 +1,11 @@
 language: php
 php:
-  - 5.6
+   - 5.4
+   - 5.5
+   - 5.6
+  
+before_script:
+    - composer self-update
+    - composer install -n
 
-before_install:
-  - composer self-update
+script: phpunit -c CrudBundle
