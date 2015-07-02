@@ -6,4 +6,4 @@ before_script:
     - composer self-update
     - composer install -n
 
-script: phpunit --no-configuration Tavs/Bundle/CrudBundle
+script: phpunit -c phpunit.xml.dist
