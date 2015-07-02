@@ -5,6 +5,8 @@
             <directory suffix="Test.php">./Tavs/Bundle/CrudBundle/Tests</directory>
         </testsuite>
     </testsuites>
+    
+    <!--
     <filter>
         <whitelist>
             <directory>./</directory>
@@ -15,4 +17,5 @@
             </exclude>
         </whitelist>
     </filter>
+    -->
 </phpunit>
