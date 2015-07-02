@@ -2,7 +2,7 @@
 
 namespace Tavs\Bundle\CrudBundle\Tests\Event;
 
-use Tavs\Bundle\CrudBundle\Event;
+use Tavs\Bundle\CrudBundle\Event\CrudEvent;
 
 class CrudEventTest extend \PHPUnit_Framework_TestCase
 {
