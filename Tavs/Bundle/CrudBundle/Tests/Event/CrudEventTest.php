@@ -41,7 +41,10 @@ class CrudEventTest extends \PHPUnit_Framework_TestCase
     
     private function getQueryBuilderMock()
     {
-        $em = $this->getMock('Doctrine\ORM\EntityManager');
+        $em = $this->getMockBuilder('Doctrine\ORM\EntityManager')
+            ->disableOriginalConstructor()
+            ->getMock();
+            
         $qb = $this
             ->getMockBuilder('Doctrine\ORM\QueryBuilder')
             ->setConstructorArgs([$em])
