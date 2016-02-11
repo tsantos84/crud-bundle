@@ -303,9 +303,9 @@ class Controller extends ContainerAware
     {
         $configuration = $this->getConfiguration();
 
-        $form = $this->createForm($configuration->getFormType(), $data, [
+        $form = $this->createForm($configuration->getFormType(), $data, array_merge($configuration->getFormTypeOptions(), [
             'action' => $this->generateUrl($configuration->getRoute('save'), $identifiers)
-        ]);
+        ]));
 
         return $form;
     }
@@ -384,7 +384,7 @@ class Controller extends ContainerAware
             'create_mode' => !$isUpdate
         ]);
 
-        $event = $this->trigger(CrudEvents::ON_RENDER_FORM, ['viewBag' => $view]);
+        $event = $this->trigger(CrudEvents::ON_RENDER_FORM, ['viewBag' => $view, 'data' => $data, 'form'=>$form]);
 
         if ($response = $event->getResponse()) {
             return $response;
@@ -478,7 +478,7 @@ class Controller extends ContainerAware
         $identifiers = [];
 
         foreach ($fieldNames as $field) {
-            if ($value = $request->get($field)) {
+            if (null !== ($value = $request->get($field))) {
                 $identifiers[ $field ] = $value;
             }
         }
