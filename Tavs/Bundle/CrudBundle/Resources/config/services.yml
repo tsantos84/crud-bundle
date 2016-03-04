@@ -9,14 +9,14 @@ services:
     tavs_crud.configuration_factory:
         class: %tavs_crud.configuration_factory.class%
         calls:
-            - [setContainer, [@service_container]]
+            - [setContainer, ["@service_container"]]
 
     tavs_crud.manager:
         class: %tavs_crud.manager.class%
-        arguments: [@tavs_crud.configuration_factory]
+        arguments: ["@tavs_crud.configuration_factory"]
 
     tavs_crud.controller:
         class: %tavs_crud.controller.class%
-        arguments: [@event_dispatcher]
+        arguments: ["@event_dispatcher"]
         calls:
-            - [setContainer, [@service_container]]
+            - [setContainer, ["@service_container"]]
